@@ -55,6 +55,19 @@ st.markdown("""
         margin: 1rem 0;
         border-radius: 5px;
     }
+    .correlation-high {
+        background-color: #ff6b6b !important;
+        color: white !important;
+        font-weight: bold;
+    }
+    .correlation-medium {
+        background-color: #ffa500 !important;
+        color: white !important;
+    }
+    .correlation-low {
+        background-color: #4ecdc4 !important;
+        color: white !important;
+    }
 </style>
 """, unsafe_allow_html=True)
 
@@ -330,6 +343,47 @@ def show_data_overview(df):
             st.write(f"- Duplicate Rows: {df.duplicated().sum()}")
             st.write(f"- Constant Columns: {len([col for col in df.columns if df[col].nunique() == 1])}")
 
+def style_correlation_matrix(corr_matrix):
+    """Style correlation matrix without matplotlib"""
+    styled_df = corr_matrix.copy()
+    
+    # Convert to HTML with custom styling
+    html = '<div style="overflow-x: auto;">'
+    html += '<table style="border-collapse: collapse; width: 100%;">'
+    
+    # Header row
+    html += '<tr><th style="border: 1px solid #ddd; padding: 8px; background: #f2f2f2;"></th>'
+    for col in corr_matrix.columns:
+        html += f'<th style="border: 1px solid #ddd; padding: 8px; background: #f2f2f2;">{col}</th>'
+    html += '</tr>'
+    
+    # Data rows
+    for i, row in enumerate(corr_matrix.index):
+        html += f'<tr><td style="border: 1px solid #ddd; padding: 8px; background: #f2f2f2; font-weight: bold;">{row}</td>'
+        for j, col in enumerate(corr_matrix.columns):
+            value = corr_matrix.iloc[i, j]
+            abs_value = abs(value)
+            
+            # Determine color intensity based on correlation strength
+            if abs_value > 0.7:
+                bg_color = "#ff6b6b"  # Strong red
+                text_color = "white"
+            elif abs_value > 0.5:
+                bg_color = "#ffa500"  # Medium orange
+                text_color = "white"
+            elif abs_value > 0.3:
+                bg_color = "#4ecdc4"  # Light teal
+                text_color = "white"
+            else:
+                bg_color = "#f8f9fa"  # Light gray
+                text_color = "black"
+            
+            html += f'<td style="border: 1px solid #ddd; padding: 8px; background: {bg_color}; color: {text_color}; text-align: center;">{value:.2f}</td>'
+        html += '</tr>'
+    
+    html += '</table></div>'
+    return html
+
 def display_advanced_results(df, results, ai_insights, quality_issues, report):
     """Display all advanced analysis results"""
     
@@ -384,14 +438,27 @@ def display_advanced_analytics(df, results):
         corr_data = results['correlation_analysis']
         if 'matrix' in corr_data:
             corr_matrix = corr_data['matrix']
-            st.dataframe(corr_matrix.style.background_gradient(cmap='coolwarm', axis=None), use_container_width=True)
+            
+            # Display styled correlation matrix
+            st.markdown(style_correlation_matrix(corr_matrix), unsafe_allow_html=True)
         
         # High correlations
         if corr_data.get('high_correlations'):
             st.subheader("🔗 Strong Correlations")
             for corr in corr_data['high_correlations'][:5]:
                 col1, col2 = corr['columns']
-                st.write(f"**{col1}** ↔ **{col2}**: {corr['correlation']:.3f} ({corr['type']})")
+                correlation_value = corr['correlation']
+                correlation_type = corr['type']
+                
+                # Color code based on strength
+                if correlation_value > 0.7:
+                    color = "🔴"
+                elif correlation_value > 0.5:
+                    color = "🟠"
+                else:
+                    color = "🟢"
+                
+                st.write(f"{color} **{col1}** ↔ **{col2}**: {correlation_value:.3f} ({correlation_type})")
     
     # Trend Analysis
     if 'trend_analysis' in results:
@@ -399,8 +466,19 @@ def display_advanced_analytics(df, results):
         trends = results['trend_analysis']
         for col, trend_info in trends.items():
             with st.expander(f"Trend Analysis: {col}"):
-                st.write(f"**Direction:** {trend_info.get('direction', 'N/A')}")
-                st.write(f"**Strength:** {trend_info.get('strength', 'N/A')}")
+                direction = trend_info.get('direction', 'N/A')
+                strength = trend_info.get('strength', 'N/A')
+                
+                # Add emojis for better visualization
+                if direction == "increasing":
+                    arrow = "📈"
+                elif direction == "decreasing":
+                    arrow = "📉"
+                else:
+                    arrow = "➡️"
+                
+                st.write(f"**Direction:** {arrow} {direction}")
+                st.write(f"**Strength:** {strength}")
                 st.write(f"**Slope:** {trend_info.get('slope', 0):.4f}")
     
     # Anomaly Detection
@@ -408,12 +486,32 @@ def display_advanced_analytics(df, results):
         st.subheader("🚨 Anomaly Detection")
         anomalies = results['anomaly_detection']
         total_anomalies = sum(anom.get('count', 0) for anom in anomalies.values())
-        st.metric("Total Anomalies Detected", total_anomalies)
+        
+        # Color code total anomalies
+        if total_anomalies > 100:
+            anomaly_color = "🔴"
+        elif total_anomalies > 50:
+            anomaly_color = "🟠"
+        else:
+            anomaly_color = "🟢"
+            
+        st.metric("Total Anomalies Detected", f"{anomaly_color} {total_anomalies}")
         
         for col, anomaly_info in list(anomalies.items())[:3]:
             with st.expander(f"Anomalies in {col}"):
-                st.write(f"Count: {anomaly_info.get('count', 0)}")
-                st.write(f"Percentage: {anomaly_info.get('percentage', 0):.1f}%")
+                count = anomaly_info.get('count', 0)
+                percentage = anomaly_info.get('percentage', 0)
+                
+                if percentage > 10:
+                    severity = "🔴 High"
+                elif percentage > 5:
+                    severity = "🟠 Medium"
+                else:
+                    severity = "🟢 Low"
+                    
+                st.write(f"**Count:** {count}")
+                st.write(f"**Percentage:** {percentage:.1f}%")
+                st.write(f"**Severity:** {severity}")
 
 def display_pattern_analysis(results):
     """Display pattern recognition results"""
@@ -428,14 +526,29 @@ def display_pattern_analysis(results):
                 col1, col2 = st.columns(2)
                 with col1:
                     st.write("**Distribution**")
-                    st.write(f"- Skewness: {stats.get('skewness', 0):.2f}")
+                    skewness = stats.get('skewness', 0)
+                    if abs(skewness) > 1:
+                        skew_icon = "⚠️"
+                    else:
+                        skew_icon = "✅"
+                    st.write(f"- Skewness: {skew_icon} {skewness:.2f}")
                     st.write(f"- Kurtosis: {stats.get('kurtosis', 0):.2f}")
                     st.write(f"- CV: {stats.get('cv', 0):.2f}%")
                 
                 with col2:
                     st.write("**Outliers**")
-                    st.write(f"- Count: {len(stats.get('outliers', []))}")
-                    st.write(f"- % of data: {len(stats.get('outliers', []))/stats.get('count', 1)*100:.1f}%")
+                    outlier_count = len(stats.get('outliers', []))
+                    outlier_percentage = outlier_count/stats.get('count', 1)*100
+                    
+                    if outlier_percentage > 10:
+                        outlier_icon = "🚨"
+                    elif outlier_percentage > 5:
+                        outlier_icon = "⚠️"
+                    else:
+                        outlier_icon = "✅"
+                        
+                    st.write(f"- Count: {outlier_icon} {outlier_count}")
+                    st.write(f"- % of data: {outlier_percentage:.1f}%")
 
 def display_advanced_visualizations(df, results):
     """Display interactive visualizations"""
@@ -455,7 +568,13 @@ def display_advanced_visualizations(df, results):
         
         with col2:
             st.subheader("📊 Distribution")
-            st.bar_chart(df[selected_col].value_counts().head(10))
+            # Create simple histogram using value_counts
+            if len(df[selected_col].dropna()) > 0:
+                # Bin the data for histogram
+                data = df[selected_col].dropna()
+                if len(data) > 0:
+                    hist_data = pd.cut(data, bins=min(20, len(data))).value_counts().sort_index()
+                    st.bar_chart(hist_data)
 
 def display_data_quality(quality_issues):
     """Display data quality assessment"""
@@ -466,7 +585,14 @@ def display_data_quality(quality_issues):
         for issue_type, issues in quality_issues.items():
             with st.expander(f"{issue_type.replace('_', ' ').title()} ({len(issues)} issues)"):
                 for issue in issues[:10]:
-                    st.write(f"- {issue}")
+                    # Add severity indicators
+                    if "CRITICAL" in issue or "HIGH" in issue:
+                        icon = "🔴"
+                    elif "missing" in issue.lower():
+                        icon = "🟠"
+                    else:
+                        icon = "🟡"
+                    st.write(f"{icon} {issue}")
     else:
         st.success("✅ No major data quality issues detected!")
 
