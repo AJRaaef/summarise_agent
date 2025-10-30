@@ -14,12 +14,6 @@ from src.pattern_recognition import (
     trend_analysis,
     anomaly_detection
 )
-from src.advanced_ai import (
-    generate_ai_insights,
-    predict_trends,
-    suggest_actions,
-    data_storytelling
-)
 from concurrent.futures import ThreadPoolExecutor, as_completed
 
 # Page config
@@ -73,7 +67,7 @@ def main():
         cols = st.columns(4)
         features = [
             "🤖 Smart Pattern Detection",
-            "📈 Predictive Analytics",
+            "📈 Predictive Analytics", 
             "🔍 Anomaly Detection",
             "📊 Automated Insights",
             "🎯 Action Recommendations",
@@ -165,19 +159,11 @@ def run_advanced_analysis(uploaded_file):
     # Stage 4: AI-Powered Insights
     status_text.text(f"🤖 {list(progress_stages.keys())[3]}...")
     
-    # Use simplified AI analysis if advanced_ai is not available
-    try:
-        ai_insights = generate_ai_insights(df, results)
-        predictions = predict_trends(df, results)
-        recommendations = suggest_actions(df, results, quality_issues)
-        story = data_storytelling(df, results, ai_insights)
-    except Exception as e:
-        # Fallback to basic insights
-        st.warning("Using simplified AI analysis")
-        ai_insights = generate_basic_insights(df, results)
-        predictions = {'short_term': [], 'long_term': []}
-        recommendations = ["Analyze data quality issues first"]
-        story = generate_basic_story(df, results)
+    # Use simplified AI analysis
+    ai_insights = generate_basic_insights(df, results)
+    predictions = {'short_term': [], 'long_term': []}
+    recommendations = generate_recommendations(df, results, quality_issues)
+    story = generate_basic_story(df, results)
     
     st.session_state.ai_insights = {
         'insights': ai_insights,
@@ -212,28 +198,52 @@ def run_advanced_analysis(uploaded_file):
     display_advanced_results(df, results, st.session_state.ai_insights, quality_issues, comprehensive_report)
 
 def generate_basic_insights(df, results):
-    """Generate basic insights when advanced AI is not available"""
+    """Generate basic insights"""
     insights = []
     
     # Basic insights from results
     if 'numeric_analysis' in results:
-        for col, stats in results['numeric_analysis'].items():
-            if stats.get('skewness', 0) > 1:
-                insights.append(f"{col} shows strong positive skewness")
-            elif stats.get('skewness', 0) < -1:
-                insights.append(f"{col} shows strong negative skewness")
+        for col, stats in list(results['numeric_analysis'].items())[:3]:
+            if abs(stats.get('skewness', 0)) > 1:
+                direction = "positive" if stats['skewness'] > 0 else "negative"
+                insights.append(f"{col} shows strong {direction} skewness")
     
     if 'correlation_analysis' in results:
-        high_corrs = results['correlation_analysis'].get('high_correlations', [])
-        for corr in high_corrs[:3]:
-            col1, col2 = corr['columns']
-            insights.append(f"Strong {corr['type']} correlation between {col1} and {col2}")
+        corr_data = results['correlation_analysis']
+        if 'high_correlations' in corr_data:
+            for corr in corr_data['high_correlations'][:2]:
+                col1, col2 = corr['columns']
+                insights.append(f"Strong correlation between {col1} and {col2}")
     
-    return insights if insights else ["Dataset loaded successfully. Run detailed analysis for more insights."]
+    if 'trend_analysis' in results:
+        for col, trend in list(results['trend_analysis'].items())[:2]:
+            if trend.get('strength') in ['strong', 'moderate']:
+                insights.append(f"{trend['direction']} trend in {col}")
+    
+    return insights if insights else ["Dataset loaded successfully. Detailed analysis complete."]
+
+def generate_recommendations(df, results, quality_issues):
+    """Generate recommendations"""
+    recommendations = []
+    
+    if quality_issues:
+        recommendations.append("Address data quality issues before further analysis")
+    
+    if 'anomaly_detection' in results:
+        total_anomalies = sum(anom.get('count', 0) for anom in results['anomaly_detection'].values())
+        if total_anomalies > 0:
+            recommendations.append(f"Review {total_anomalies} detected anomalies")
+    
+    if 'correlation_analysis' in results:
+        corr_data = results['correlation_analysis']
+        if 'high_correlations' in corr_data and corr_data['high_correlations']:
+            recommendations.append("Investigate strong correlations for business insights")
+    
+    return recommendations if recommendations else ["Continue with deeper analysis based on initial findings"]
 
 def generate_basic_story(df, results):
     """Generate basic data story"""
-    return f"This dataset contains {df.shape[0]:,} records with {df.shape[1]} features. Basic analysis reveals patterns in the data that can inform decision-making."
+    return f"This dataset contains {df.shape[0]:,} records with {df.shape[1]} features. Analysis reveals patterns and relationships that can inform data-driven decisions."
 
 def generate_comprehensive_report(df, results, ai_insights, quality_issues):
     """Generate comprehensive analysis report"""
@@ -359,19 +369,6 @@ def display_ai_insights(ai_insights):
     for i, insight in enumerate(ai_insights['insights'][:5], 1):
         st.markdown(f'<div class="insight-box"><strong>Insight {i}:</strong> {insight}</div>', unsafe_allow_html=True)
     
-    # Predictions
-    st.subheader("🔮 Predictive Analysis")
-    col1, col2 = st.columns(2)
-    with col1:
-        st.write("**Short-term Trends**")
-        for pred in ai_insights['predictions'].get('short_term', [])[:3]:
-            st.write(f"📈 {pred}")
-    
-    with col2:
-        st.write("**Long-term Projections**")
-        for pred in ai_insights['predictions'].get('long_term', [])[:3]:
-            st.write(f"🎯 {pred}")
-    
     # Recommendations
     st.subheader("🎯 Actionable Recommendations")
     for i, recommendation in enumerate(ai_insights['recommendations'][:5], 1):
@@ -417,8 +414,6 @@ def display_advanced_analytics(df, results):
             with st.expander(f"Anomalies in {col}"):
                 st.write(f"Count: {anomaly_info.get('count', 0)}")
                 st.write(f"Percentage: {anomaly_info.get('percentage', 0):.1f}%")
-                if anomaly_info.get('outliers'):
-                    st.write(f"Range: {anomaly_info.get('min_outlier'):.2f} to {anomaly_info.get('max_outlier'):.2f}")
 
 def display_pattern_analysis(results):
     """Display pattern recognition results"""
@@ -460,14 +455,7 @@ def display_advanced_visualizations(df, results):
         
         with col2:
             st.subheader("📊 Distribution")
-            # Simple histogram using value_counts on binned data
-            if len(df[selected_col].dropna()) > 0:
-                hist_data = pd.cut(df[selected_col], bins=20).value_counts().sort_index()
-                hist_df = pd.DataFrame({
-                    'Bin': [f"{interval.left:.1f}-{interval.right:.1f}" for interval in hist_data.index],
-                    'Count': hist_data.values
-                })
-                st.bar_chart(hist_data)
+            st.bar_chart(df[selected_col].value_counts().head(10))
 
 def display_data_quality(quality_issues):
     """Display data quality assessment"""
