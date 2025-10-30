@@ -196,6 +196,39 @@ def display_results(df, col_mapping, numeric_cols, categorical_cols, num_summary
         st.subheader("Full Dataset")
         st.dataframe(df, use_container_width=True)
 
+def create_simple_histogram(data, bins=20):
+    """Create histogram data without using pandas cut (which creates Interval objects)"""
+    if len(data) == 0:
+        return pd.DataFrame({'bin_range': [], 'count': []})
+    
+    min_val = data.min()
+    max_val = data.max()
+    bin_width = (max_val - min_val) / bins
+    
+    # Create simple bin ranges
+    bin_edges = [min_val + i * bin_width for i in range(bins + 1)]
+    bin_counts = [0] * bins
+    
+    # Count values in each bin
+    for value in data:
+        if pd.notna(value):
+            bin_index = min(int((value - min_val) / bin_width), bins - 1)
+            bin_counts[bin_index] += 1
+    
+    # Create bin labels
+    bin_labels = []
+    for i in range(bins):
+        if i == bins - 1:
+            label = f"{bin_edges[i]:.1f}-{bin_edges[i+1]:.1f}"
+        else:
+            label = f"{bin_edges[i]:.1f}-{bin_edges[i+1]:.1f}"
+        bin_labels.append(label)
+    
+    return pd.DataFrame({
+        'bin_range': bin_labels,
+        'count': bin_counts
+    })
+
 def display_numeric_column(df, col, col_mapping, num_summary):
     """Efficient display for a single numeric column using only Streamlit charts"""
     info = num_summary[col]
@@ -225,13 +258,18 @@ def display_numeric_column(df, col, col_mapping, num_summary):
             st.line_chart(df[col], use_container_width=True)
             
         with tab2:
-            # Histogram using Streamlit's native bar_chart
-            hist_data = pd.cut(df[col], bins=20).value_counts().sort_index()
-            hist_df = pd.DataFrame({
-                'Bin': [f"{interval.left:.1f}-{interval.right:.1f}" for interval in hist_data.index],
-                'Count': hist_data.values
-            })
-            st.bar_chart(hist_data, use_container_width=True)
+            # Fixed histogram using our custom function
+            data = df[col].dropna()
+            if len(data) > 0:
+                hist_df = create_simple_histogram(data, bins=15)
+                if not hist_df.empty:
+                    # Display as bar chart with proper labels
+                    chart_data = hist_df.set_index('bin_range')['count']
+                    st.bar_chart(chart_data, use_container_width=True)
+                else:
+                    st.info("No data available for histogram")
+            else:
+                st.info("No data available for histogram")
             
         with tab3:
             # Detailed statistics
@@ -264,39 +302,51 @@ def display_categorical_column(df, col, col_mapping, cat_summary):
         # Summary stats
         unique_count = len(freq)
         total_count = df[col].count()
-        most_common = max(freq.items(), key=lambda x: x[1] if isinstance(x[1], (int, float)) else 0)
-        most_common_pct = (most_common[1] / total_count * 100) if total_count > 0 else 0
+        most_common_item, most_common_count = max(freq.items(), key=lambda x: x[1] if isinstance(x[1], (int, float)) else 0)
+        most_common_pct = (most_common_count / total_count * 100) if total_count > 0 else 0
         
         col1, col2, col3, col4 = st.columns(4)
         with col1:
             st.metric("Unique Values", unique_count)
         with col2:
-            st.metric("Most Common", most_common[0])
+            # Truncate long category names for display
+            display_name = str(most_common_item)[:20] + '...' if len(str(most_common_item)) > 20 else str(most_common_item)
+            st.metric("Most Common", display_name)
         with col3:
-            st.metric("Occurrences", most_common[1])
+            st.metric("Occurrences", most_common_count)
         with col4:
             st.metric("Frequency", f"{most_common_pct:.1f}%")
         
         # Visualization - bar chart of top categories
-        top_n = min(10, len(freq))
+        top_n = min(15, len(freq))
         top_categories = dict(sorted(freq.items(), 
                                    key=lambda x: x[1] if isinstance(x[1], (int, float)) else 0, 
                                    reverse=True)[:top_n])
         
-        # Create dataframe for bar chart
-        chart_df = pd.DataFrame({
-            'Category': list(top_categories.keys()),
-            'Count': list(top_categories.values())
-        })
+        # Create proper dataframe for bar chart with string labels
+        chart_data = {}
+        for category, count in top_categories.items():
+            # Ensure category is string and truncate if too long
+            category_str = str(category)
+            if len(category_str) > 30:
+                category_str = category_str[:27] + '...'
+            chart_data[category_str] = count
         
         # Display bar chart
-        st.bar_chart(chart_df.set_index('Category'), use_container_width=True)
+        if chart_data:
+            st.bar_chart(chart_data, use_container_width=True)
+        else:
+            st.info("No data available for chart")
         
         # Show frequency table in expander
         with st.expander("View Full Frequency Table"):
             freq_df = pd.DataFrame(list(freq.items()), columns=['Value', 'Count'])
             freq_df['Percentage'] = (freq_df['Count'] / total_count * 100).round(1)
             freq_df = freq_df.sort_values('Count', ascending=False)
+            
+            # Format values for display
+            freq_df['Value'] = freq_df['Value'].apply(lambda x: str(x)[:50] + '...' if len(str(x)) > 50 else str(x))
+            
             st.dataframe(freq_df, use_container_width=True, height=300)
 
 if __name__ == "__main__":
