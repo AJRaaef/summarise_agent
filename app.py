@@ -20,12 +20,6 @@ from src.advanced_ai import (
     suggest_actions,
     data_storytelling
 )
-from src.visualization_engine import (
-    create_advanced_charts,
-    create_dashboard,
-    interactive_plots
-)
-from src.report_generator import generate_comprehensive_report
 from concurrent.futures import ThreadPoolExecutor, as_completed
 
 # Page config
@@ -170,10 +164,20 @@ def run_advanced_analysis(uploaded_file):
     
     # Stage 4: AI-Powered Insights
     status_text.text(f"🤖 {list(progress_stages.keys())[3]}...")
-    ai_insights = generate_ai_insights(df, results)
-    predictions = predict_trends(df, results)
-    recommendations = suggest_actions(df, results, quality_issues)
-    story = data_storytelling(df, results, ai_insights)
+    
+    # Use simplified AI analysis if advanced_ai is not available
+    try:
+        ai_insights = generate_ai_insights(df, results)
+        predictions = predict_trends(df, results)
+        recommendations = suggest_actions(df, results, quality_issues)
+        story = data_storytelling(df, results, ai_insights)
+    except Exception as e:
+        # Fallback to basic insights
+        st.warning("Using simplified AI analysis")
+        ai_insights = generate_basic_insights(df, results)
+        predictions = {'short_term': [], 'long_term': []}
+        recommendations = ["Analyze data quality issues first"]
+        story = generate_basic_story(df, results)
     
     st.session_state.ai_insights = {
         'insights': ai_insights,
@@ -206,6 +210,81 @@ def run_advanced_analysis(uploaded_file):
     
     # Display all results
     display_advanced_results(df, results, st.session_state.ai_insights, quality_issues, comprehensive_report)
+
+def generate_basic_insights(df, results):
+    """Generate basic insights when advanced AI is not available"""
+    insights = []
+    
+    # Basic insights from results
+    if 'numeric_analysis' in results:
+        for col, stats in results['numeric_analysis'].items():
+            if stats.get('skewness', 0) > 1:
+                insights.append(f"{col} shows strong positive skewness")
+            elif stats.get('skewness', 0) < -1:
+                insights.append(f"{col} shows strong negative skewness")
+    
+    if 'correlation_analysis' in results:
+        high_corrs = results['correlation_analysis'].get('high_correlations', [])
+        for corr in high_corrs[:3]:
+            col1, col2 = corr['columns']
+            insights.append(f"Strong {corr['type']} correlation between {col1} and {col2}")
+    
+    return insights if insights else ["Dataset loaded successfully. Run detailed analysis for more insights."]
+
+def generate_basic_story(df, results):
+    """Generate basic data story"""
+    return f"This dataset contains {df.shape[0]:,} records with {df.shape[1]} features. Basic analysis reveals patterns in the data that can inform decision-making."
+
+def generate_comprehensive_report(df, results, ai_insights, quality_issues):
+    """Generate comprehensive analysis report"""
+    report = {
+        'executive_summary': f"""
+DATA ANALYSIS EXECUTIVE SUMMARY
+Generated: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}
+
+Dataset Overview:
+- Records: {df.shape[0]:,}
+- Features: {df.shape[1]}
+- Analysis Complete: Yes
+
+Key Insights:
+{chr(10).join(['• ' + insight for insight in ai_insights.get('insights', [])[:3]])}
+
+This analysis provides valuable insights for data-driven decision making.
+        """,
+        'detailed_report': f"""
+COMPREHENSIVE DATA ANALYSIS REPORT
+==================================
+
+Dataset: {df.shape[0]:,} rows × {df.shape[1]} columns
+Analysis Date: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}
+
+DATA QUALITY:
+{generate_quality_report(quality_issues)}
+
+KEY INSIGHTS:
+{chr(10).join(['• ' + insight for insight in ai_insights.get('insights', [])])}
+
+RECOMMENDATIONS:
+{chr(10).join(['• ' + rec for rec in ai_insights.get('recommendations', [])])}
+        """,
+        'filename': f"data_analysis_report_{datetime.now().strftime('%Y%m%d_%H%M%S')}.txt"
+    }
+    
+    return report
+
+def generate_quality_report(quality_issues):
+    """Generate quality issues report"""
+    if not quality_issues:
+        return "No significant data quality issues detected."
+    
+    report = ""
+    for issue_type, issues in quality_issues.items():
+        report += f"\n{issue_type.upper()}:\n"
+        for issue in issues[:5]:
+            report += f"  - {issue}\n"
+    
+    return report
 
 def show_data_overview(df):
     """Enhanced data overview with advanced metrics"""
@@ -305,9 +384,17 @@ def display_advanced_analytics(df, results):
     # Correlation Heatmap
     if 'correlation_analysis' in results:
         st.subheader("🔄 Correlation Matrix")
-        corr_matrix = results['correlation_analysis']
-        # Display as interactive table or visualization
-        st.dataframe(corr_matrix.style.background_gradient(cmap='coolwarm', axis=None), use_container_width=True)
+        corr_data = results['correlation_analysis']
+        if 'matrix' in corr_data:
+            corr_matrix = corr_data['matrix']
+            st.dataframe(corr_matrix.style.background_gradient(cmap='coolwarm', axis=None), use_container_width=True)
+        
+        # High correlations
+        if corr_data.get('high_correlations'):
+            st.subheader("🔗 Strong Correlations")
+            for corr in corr_data['high_correlations'][:5]:
+                col1, col2 = corr['columns']
+                st.write(f"**{col1}** ↔ **{col2}**: {corr['correlation']:.3f} ({corr['type']})")
     
     # Trend Analysis
     if 'trend_analysis' in results:
@@ -317,19 +404,21 @@ def display_advanced_analytics(df, results):
             with st.expander(f"Trend Analysis: {col}"):
                 st.write(f"**Direction:** {trend_info.get('direction', 'N/A')}")
                 st.write(f"**Strength:** {trend_info.get('strength', 'N/A')}")
-                st.write(f"**Seasonality:** {trend_info.get('seasonality', 'N/A')}")
+                st.write(f"**Slope:** {trend_info.get('slope', 0):.4f}")
     
     # Anomaly Detection
     if 'anomaly_detection' in results:
         st.subheader("🚨 Anomaly Detection")
         anomalies = results['anomaly_detection']
-        total_anomalies = sum(len(anom) for anom in anomalies.values())
+        total_anomalies = sum(anom.get('count', 0) for anom in anomalies.values())
         st.metric("Total Anomalies Detected", total_anomalies)
         
-        for col, anomaly_list in anomalies.items():
-            if anomaly_list:
-                with st.expander(f"Anomalies in {col} ({len(anomaly_list)} found)"):
-                    st.write(f"Top anomalies: {anomaly_list[:5]}")
+        for col, anomaly_info in list(anomalies.items())[:3]:
+            with st.expander(f"Anomalies in {col}"):
+                st.write(f"Count: {anomaly_info.get('count', 0)}")
+                st.write(f"Percentage: {anomaly_info.get('percentage', 0):.1f}%")
+                if anomaly_info.get('outliers'):
+                    st.write(f"Range: {anomaly_info.get('min_outlier'):.2f} to {anomaly_info.get('max_outlier'):.2f}")
 
 def display_pattern_analysis(results):
     """Display pattern recognition results"""
@@ -339,7 +428,7 @@ def display_pattern_analysis(results):
     if 'numeric_analysis' in results:
         st.subheader("🔢 Numeric Patterns")
         numeric_results = results['numeric_analysis']
-        for col, stats in numeric_results.items():
+        for col, stats in list(numeric_results.items())[:5]:
             with st.expander(f"Patterns in {col}"):
                 col1, col2 = st.columns(2)
                 with col1:
@@ -357,24 +446,28 @@ def display_advanced_visualizations(df, results):
     """Display interactive visualizations"""
     st.header("📊 Advanced Visualizations")
     
-    # Let user select visualization type
-    viz_type = st.selectbox(
-        "Choose Visualization Type",
-        ["Interactive Distribution", "Correlation Matrix", "Trend Analysis", "Anomaly Map"]
-    )
+    # Simple visualizations using Streamlit
+    numeric_cols = df.select_dtypes(include=np.number).columns.tolist()
     
-    # Generate selected visualization
-    if viz_type == "Interactive Distribution":
-        numeric_cols = df.select_dtypes(include=np.number).columns.tolist()
-        if numeric_cols:
-            selected_col = st.selectbox("Select Column", numeric_cols)
-            if selected_col:
-                chart = create_advanced_charts(df, 'distribution', selected_col)
-                st.plotly_chart(chart, use_container_width=True)
-    
-    elif viz_type == "Correlation Matrix":
-        chart = create_advanced_charts(df, 'correlation')
-        st.plotly_chart(chart, use_container_width=True)
+    if numeric_cols:
+        selected_col = st.selectbox("Select Column for Visualization", numeric_cols)
+        
+        col1, col2 = st.columns(2)
+        
+        with col1:
+            st.subheader("📈 Line Chart")
+            st.line_chart(df[selected_col])
+        
+        with col2:
+            st.subheader("📊 Distribution")
+            # Simple histogram using value_counts on binned data
+            if len(df[selected_col].dropna()) > 0:
+                hist_data = pd.cut(df[selected_col], bins=20).value_counts().sort_index()
+                hist_df = pd.DataFrame({
+                    'Bin': [f"{interval.left:.1f}-{interval.right:.1f}" for interval in hist_data.index],
+                    'Count': hist_data.values
+                })
+                st.bar_chart(hist_data)
 
 def display_data_quality(quality_issues):
     """Display data quality assessment"""
@@ -383,8 +476,8 @@ def display_data_quality(quality_issues):
     if quality_issues:
         st.subheader("🚨 Quality Issues Found")
         for issue_type, issues in quality_issues.items():
-            with st.expander(f"{issue_type} ({len(issues)} issues)"):
-                for issue in issues[:10]:  # Show first 10 issues
+            with st.expander(f"{issue_type.replace('_', ' ').title()} ({len(issues)} issues)"):
+                for issue in issues[:10]:
                     st.write(f"- {issue}")
     else:
         st.success("✅ No major data quality issues detected!")
@@ -403,17 +496,17 @@ def display_comprehensive_report(report):
     st.header("📄 Comprehensive Analysis Report")
     
     st.download_button(
-        "📥 Download Full Report (PDF)",
-        data=report['pdf_content'],
+        "📥 Download Full Report (TXT)",
+        data=report['detailed_report'],
         file_name=report['filename'],
-        mime="application/pdf"
+        mime="text/plain"
     )
     
     st.subheader("Executive Summary")
     st.write(report['executive_summary'])
     
     with st.expander("View Detailed Report"):
-        st.write(report['detailed_report'])
+        st.text(report['detailed_report'])
 
 if __name__ == "__main__":
     main()
