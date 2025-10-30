@@ -55,6 +55,13 @@ st.markdown("""
         margin: 1rem 0;
         border-radius: 5px;
     }
+    .summary-box {
+        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        color: white;
+        padding: 1.5rem;
+        border-radius: 10px;
+        margin: 1rem 0;
+    }
     .correlation-high {
         background-color: #ff6b6b !important;
         color: white !important;
@@ -210,6 +217,70 @@ def run_advanced_analysis(uploaded_file):
     # Display all results
     display_advanced_results(df, results, st.session_state.ai_insights, quality_issues, comprehensive_report)
 
+def generate_comprehensive_summary(df, results):
+    """Generate comprehensive summary in the requested format"""
+    summary_parts = []
+    
+    # Dataset Overview
+    numeric_cols = df.select_dtypes(include=np.number).columns.tolist()
+    categorical_cols = df.select_dtypes(exclude=np.number).columns.tolist()
+    
+    summary_parts.append("**Dataset Overview:**")
+    summary_parts.append(f"- Total Records: {df.shape[0]:,}")
+    summary_parts.append(f"- Total Features: {df.shape[1]}")
+    summary_parts.append(f"- Numeric Columns: {len(numeric_cols)}")
+    summary_parts.append(f"- Categorical Columns: {len(categorical_cols)}")
+    summary_parts.append("")
+    
+    # Key Numeric Insights
+    if 'numeric_analysis' in results and results['numeric_analysis']:
+        summary_parts.append("**Key Numeric Insights:**")
+        numeric_results = results['numeric_analysis']
+        
+        # Show top 5 numeric columns
+        for col, stats in list(numeric_results.items())[:5]:
+            mean_val = stats.get('mean', 0)
+            sum_val = stats.get('sum', 0)
+            outliers_count = len(stats.get('outliers', []))
+            
+            # Format numbers nicely
+            if abs(mean_val) >= 1000:
+                mean_str = f"{mean_val:,.2f}"
+            else:
+                mean_str = f"{mean_val:.2f}"
+                
+            if abs(sum_val) >= 1000:
+                sum_str = f"{sum_val:,.2f}"
+            else:
+                sum_str = f"{sum_val:.2f}"
+            
+            summary_parts.append(f"• {col}: Avg {mean_str}, Total {sum_str}, {outliers_count} outliers")
+        summary_parts.append("")
+    
+    # Key Categorical Insights
+    if 'categorical_analysis' in results and results['categorical_analysis']:
+        summary_parts.append("**Key Categorical Insights:**")
+        categorical_results = results['categorical_analysis']
+        
+        # Show top 5 categorical columns
+        for col, stats in list(categorical_results.items())[:5]:
+            freq_data = stats.get('frequency', {})
+            unique_count = stats.get('unique_count', 0)
+            mode = stats.get('mode', 'N/A')
+            mode_count = stats.get('mode_count', 0)
+            
+            # Handle cases where mode might be None or not available
+            if mode is None or mode == 'N/A':
+                mode_display = 'N/A'
+                mode_count_display = 0
+            else:
+                mode_display = str(mode)[:30]  # Truncate long values
+                mode_count_display = mode_count
+            
+            summary_parts.append(f"• {col}: {unique_count} unique values, most common '{mode_display}' ({mode_count_display} occurrences)")
+    
+    return "\n".join(summary_parts)
+
 def generate_basic_insights(df, results):
     """Generate basic insights"""
     insights = []
@@ -260,17 +331,18 @@ def generate_basic_story(df, results):
 
 def generate_comprehensive_report(df, results, ai_insights, quality_issues):
     """Generate comprehensive analysis report"""
+    
+    # Generate the new comprehensive summary
+    comprehensive_summary = generate_comprehensive_summary(df, results)
+    
     report = {
         'executive_summary': f"""
 DATA ANALYSIS EXECUTIVE SUMMARY
 Generated: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}
 
-Dataset Overview:
-- Records: {df.shape[0]:,}
-- Features: {df.shape[1]}
-- Analysis Complete: Yes
+{comprehensive_summary}
 
-Key Insights:
+Key AI Insights:
 {chr(10).join(['• ' + insight for insight in ai_insights.get('insights', [])[:3]])}
 
 This analysis provides valuable insights for data-driven decision making.
@@ -282,16 +354,19 @@ COMPREHENSIVE DATA ANALYSIS REPORT
 Dataset: {df.shape[0]:,} rows × {df.shape[1]} columns
 Analysis Date: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}
 
+{comprehensive_summary}
+
 DATA QUALITY:
 {generate_quality_report(quality_issues)}
 
-KEY INSIGHTS:
+KEY AI INSIGHTS:
 {chr(10).join(['• ' + insight for insight in ai_insights.get('insights', [])])}
 
 RECOMMENDATIONS:
 {chr(10).join(['• ' + rec for rec in ai_insights.get('recommendations', [])])}
         """,
-        'filename': f"data_analysis_report_{datetime.now().strftime('%Y%m%d_%H%M%S')}.txt"
+        'filename': f"data_analysis_report_{datetime.now().strftime('%Y%m%d_%H%M%S')}.txt",
+        'comprehensive_summary': comprehensive_summary
     }
     
     return report
@@ -343,6 +418,39 @@ def show_data_overview(df):
             st.write(f"- Duplicate Rows: {df.duplicated().sum()}")
             st.write(f"- Constant Columns: {len([col for col in df.columns if df[col].nunique() == 1])}")
 
+def create_simple_histogram(data, bins=20):
+    """Create histogram data without using pandas cut (which creates Interval objects)"""
+    if len(data) == 0:
+        return pd.DataFrame({'bin_range': [], 'count': []})
+    
+    min_val = data.min()
+    max_val = data.max()
+    bin_width = (max_val - min_val) / bins
+    
+    # Create simple bin ranges
+    bin_edges = [min_val + i * bin_width for i in range(bins + 1)]
+    bin_counts = [0] * bins
+    
+    # Count values in each bin
+    for value in data:
+        if pd.notna(value):
+            bin_index = min(int((value - min_val) / bin_width), bins - 1)
+            bin_counts[bin_index] += 1
+    
+    # Create bin labels as simple strings
+    bin_labels = []
+    for i in range(bins):
+        if i == bins - 1:
+            label = f"{bin_edges[i]:.1f}-{bin_edges[i+1]:.1f}"
+        else:
+            label = f"{bin_edges[i]:.1f}-{bin_edges[i+1]:.1f}"
+        bin_labels.append(label)
+    
+    return pd.DataFrame({
+        'bin_range': bin_labels,
+        'count': bin_counts
+    })
+
 def style_correlation_matrix(corr_matrix):
     """Style correlation matrix without matplotlib"""
     styled_df = corr_matrix.copy()
@@ -388,31 +496,52 @@ def display_advanced_results(df, results, ai_insights, quality_issues, report):
     """Display all advanced analysis results"""
     
     # Create main navigation tabs
-    tab1, tab2, tab3, tab4, tab5, tab6, tab7 = st.tabs([
-        "🤖 AI Insights", "📈 Analytics", "🔍 Patterns", 
+    tab1, tab2, tab3, tab4, tab5, tab6, tab7, tab8 = st.tabs([
+        "📋 Summary", "🤖 AI Insights", "📈 Analytics", "🔍 Patterns", 
         "📊 Visualizations", "📋 Data Quality", "📖 Story", "📄 Report"
     ])
     
     with tab1:
-        display_ai_insights(ai_insights)
+        display_comprehensive_summary(report['comprehensive_summary'])
     
     with tab2:
-        display_advanced_analytics(df, results)
+        display_ai_insights(ai_insights)
     
     with tab3:
-        display_pattern_analysis(results)
+        display_advanced_analytics(df, results)
     
     with tab4:
-        display_advanced_visualizations(df, results)
+        display_pattern_analysis(results)
     
     with tab5:
-        display_data_quality(quality_issues)
+        display_advanced_visualizations(df, results)
     
     with tab6:
-        display_data_story(ai_insights['story'])
+        display_data_quality(quality_issues)
     
     with tab7:
+        display_data_story(ai_insights['story'])
+    
+    with tab8:
         display_comprehensive_report(report)
+
+def display_comprehensive_summary(summary_text):
+    """Display the comprehensive summary in a beautiful format"""
+    st.header("📋 Comprehensive Summary")
+    
+    # Display summary in a nice box
+    st.markdown(f"""
+    <div style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; padding: 2rem; border-radius: 15px; margin: 1rem 0;">
+        <h3 style="color: white; margin-bottom: 1rem;">📊 Dataset Overview & Key Insights</h3>
+        <div style="background: rgba(255,255,255,0.1); padding: 1.5rem; border-radius: 10px;">
+            {summary_text.replace(chr(10), '<br>').replace('•', '•')}
+        </div>
+    </div>
+    """, unsafe_allow_html=True)
+    
+    # Also show as raw text for copying
+    with st.expander("📝 Copy Summary Text"):
+        st.text(summary_text)
 
 def display_ai_insights(ai_insights):
     """Display AI-generated insights"""
@@ -568,13 +697,18 @@ def display_advanced_visualizations(df, results):
         
         with col2:
             st.subheader("📊 Distribution")
-            # Create simple histogram using value_counts
-            if len(df[selected_col].dropna()) > 0:
-                # Bin the data for histogram
-                data = df[selected_col].dropna()
-                if len(data) > 0:
-                    hist_data = pd.cut(data, bins=min(20, len(data))).value_counts().sort_index()
-                    st.bar_chart(hist_data)
+            # Use our custom histogram function instead of pd.cut
+            data = df[selected_col].dropna()
+            if len(data) > 0:
+                hist_df = create_simple_histogram(data, bins=15)
+                if not hist_df.empty:
+                    # Display as bar chart with proper labels
+                    chart_data = hist_df.set_index('bin_range')['count']
+                    st.bar_chart(chart_data)
+                else:
+                    st.info("No data available for histogram")
+            else:
+                st.info("No data available for histogram")
 
 def display_data_quality(quality_issues):
     """Display data quality assessment"""
