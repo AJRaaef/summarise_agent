@@ -27,53 +27,77 @@ st.set_page_config(
 st.markdown("""
 <style>
     .main-header {
-        font-size: 3rem;
+        font-size: 2.5rem;
         background: linear-gradient(45deg, #FF6B6B, #4ECDC4);
         -webkit-background-clip: text;
         -webkit-text-fill-color: transparent;
         text-align: center;
-        margin-bottom: 2rem;
+        margin-bottom: 1rem;
+        font-weight: bold;
+    }
+    .sub-header {
+        font-size: 1.5rem;
+        color: #2c3e50;
+        margin-bottom: 1rem;
+        font-weight: 600;
     }
     .feature-card {
         background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-        padding: 1.5rem;
-        border-radius: 15px;
+        padding: 1rem;
+        border-radius: 10px;
         color: white;
-        margin: 10px 0;
+        margin: 8px 0;
+        text-align: center;
+        font-weight: 500;
     }
     .insight-box {
         background: #f8f9fa;
         border-left: 4px solid #4ECDC4;
         padding: 1rem;
-        margin: 1rem 0;
-        border-radius: 5px;
+        margin: 0.5rem 0;
+        border-radius: 8px;
+        font-size: 0.95rem;
     }
     .warning-box {
         background: #fff3cd;
         border-left: 4px solid #ffc107;
         padding: 1rem;
-        margin: 1rem 0;
-        border-radius: 5px;
+        margin: 0.5rem 0;
+        border-radius: 8px;
+        font-size: 0.95rem;
     }
     .summary-box {
         background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
         color: white;
         padding: 1.5rem;
-        border-radius: 10px;
+        border-radius: 12px;
         margin: 1rem 0;
     }
-    .correlation-high {
-        background-color: #ff6b6b !important;
-        color: white !important;
-        font-weight: bold;
+    .metric-card {
+        background: white;
+        padding: 1rem;
+        border-radius: 10px;
+        border: 1px solid #e0e0e0;
+        text-align: center;
+        box-shadow: 0 2px 4px rgba(0,0,0,0.1);
     }
-    .correlation-medium {
-        background-color: #ffa500 !important;
-        color: white !important;
+    .tab-content {
+        padding: 1rem 0;
     }
-    .correlation-low {
-        background-color: #4ecdc4 !important;
-        color: white !important;
+    .upload-section {
+        background: #f8f9fa;
+        padding: 2rem;
+        border-radius: 12px;
+        border: 2px dashed #dee2e6;
+        text-align: center;
+        margin: 1rem 0;
+    }
+    .file-info {
+        background: #e8f5e8;
+        padding: 1rem;
+        border-radius: 8px;
+        border-left: 4px solid #28a745;
+        margin: 1rem 0;
     }
 </style>
 """, unsafe_allow_html=True)
@@ -82,23 +106,34 @@ def main():
     # Header with animated elements
     st.markdown('<h1 class="main-header">🧠 Advanced AI Data Analysis Agent</h1>', unsafe_allow_html=True)
     
-    # Feature showcase
-    with st.expander("🚀 **AI-Powered Features**", expanded=True):
-        cols = st.columns(4)
-        features = [
+    # Feature showcase in a more organized way
+    st.markdown("### 🚀 AI-Powered Features")
+    features_col1, features_col2 = st.columns(2)
+    
+    with features_col1:
+        features_left = [
             "🤖 Smart Pattern Detection",
             "📈 Predictive Analytics", 
             "🔍 Anomaly Detection",
-            "📊 Automated Insights",
+            "📊 Automated Insights"
+        ]
+        for feature in features_left:
+            st.markdown(f'<div class="feature-card">{feature}</div>', unsafe_allow_html=True)
+    
+    with features_col2:
+        features_right = [
             "🎯 Action Recommendations",
             "📖 Data Storytelling",
             "🔄 Real-time Analysis",
             "📋 Professional Reports"
         ]
-        for i, feature in enumerate(features):
-            cols[i % 4].markdown(f'<div class="feature-card">{feature}</div>', unsafe_allow_html=True)
+        for feature in features_right:
+            st.markdown(f'<div class="feature-card">{feature}</div>', unsafe_allow_html=True)
     
-    # File upload with drag & drop style
+    st.markdown("---")
+    
+    # File upload section
+    st.markdown("### 📁 Upload Your Dataset")
     uploaded_file = st.file_uploader(
         "**Drag & Drop your data file here**", 
         type=["csv", "xlsx", "xls", "json", "parquet"],
@@ -107,6 +142,13 @@ def main():
     
     if uploaded_file is not None:
         try:
+            # Show file info
+            st.markdown(f"""
+            <div class="file-info">
+                <strong>📄 File Selected:</strong> {uploaded_file.name} | <strong>📊 Size:</strong> {uploaded_file.size:,} bytes
+            </div>
+            """, unsafe_allow_html=True)
+            
             # Initialize session state for analysis results
             if 'analysis_complete' not in st.session_state:
                 st.session_state.analysis_complete = False
@@ -327,7 +369,21 @@ def generate_recommendations(df, results, quality_issues):
 
 def generate_basic_story(df, results):
     """Generate basic data story"""
-    return f"This dataset contains {df.shape[0]:,} records with {df.shape[1]} features. Analysis reveals patterns and relationships that can inform data-driven decisions."
+    numeric_cols = df.select_dtypes(include=np.number).columns.tolist()
+    categorical_cols = df.select_dtypes(exclude=np.number).columns.tolist()
+    
+    story_parts = []
+    story_parts.append(f"This comprehensive analysis of your dataset reveals valuable insights across {df.shape[0]:,} records and {df.shape[1]} features.")
+    
+    if numeric_cols:
+        story_parts.append(f"The dataset contains {len(numeric_cols)} numeric columns including key metrics like {', '.join(numeric_cols[:3])}.")
+    
+    if categorical_cols:
+        story_parts.append(f"Additionally, there are {len(categorical_cols)} categorical columns providing contextual information.")
+    
+    story_parts.append("The analysis uncovers patterns, correlations, and anomalies that can inform data-driven decision making and strategic planning.")
+    
+    return " ".join(story_parts)
 
 def generate_comprehensive_report(df, results, ai_insights, quality_issues):
     """Generate comprehensive analysis report"""
@@ -386,37 +442,47 @@ def generate_quality_report(quality_issues):
 
 def show_data_overview(df):
     """Enhanced data overview with advanced metrics"""
-    st.subheader("📊 Dataset Intelligence Overview")
+    st.markdown("### 📊 Dataset Intelligence Overview")
     
     cols = st.columns(6)
     metrics = [
-        ("Total Records", f"{df.shape[0]:,}"),
-        ("Features", f"{df.shape[1]}"),
-        ("Memory Usage", f"{df.memory_usage(deep=True).sum() / 1024 ** 2:.1f} MB"),
-        ("Complete Cases", f"{(1 - df.isnull().any(axis=1).mean()) * 100:.1f}%"),
-        ("Data Density", f"{(1 - df.isnull().sum().sum() / (df.shape[0] * df.shape[1])) * 100:.1f}%"),
-        ("Unique Ratio", f"{(df.nunique() / len(df)).mean() * 100:.1f}%")
+        ("Total Records", f"{df.shape[0]:,}", "📈"),
+        ("Features", f"{df.shape[1]}", "🔧"),
+        ("Memory Usage", f"{df.memory_usage(deep=True).sum() / 1024 ** 2:.1f} MB", "💾"),
+        ("Complete Cases", f"{(1 - df.isnull().any(axis=1).mean()) * 100:.1f}%", "✅"),
+        ("Data Density", f"{(1 - df.isnull().sum().sum() / (df.shape[0] * df.shape[1])) * 100:.1f}%", "📊"),
+        ("Unique Ratio", f"{(df.nunique() / len(df)).mean() * 100:.1f}%", "🎯")
     ]
     
-    for col, (label, value) in zip(cols, metrics):
-        col.metric(label, value)
+    for col, (label, value, icon) in zip(cols, metrics):
+        with col:
+            st.markdown(f"""
+            <div class="metric-card">
+                <div style="font-size: 1.5rem; margin-bottom: 0.5rem;">{icon}</div>
+                <div style="font-size: 0.9rem; color: #666; margin-bottom: 0.25rem;">{label}</div>
+                <div style="font-size: 1.2rem; font-weight: bold; color: #2c3e50;">{value}</div>
+            </div>
+            """, unsafe_allow_html=True)
     
-    # Quick insights
-    with st.expander("🔍 Quick Data Insights"):
+    # Quick insights in a more organized way
+    with st.expander("🔍 Detailed Dataset Information", expanded=False):
         col1, col2 = st.columns(2)
         with col1:
-            st.write("**Data Types Distribution**")
+            st.markdown("**📋 Data Types Distribution**")
             dtype_counts = df.dtypes.value_counts()
             for dtype, count in dtype_counts.items():
-                st.write(f"- {dtype}: {count} columns")
+                st.write(f"- `{dtype}`: {count} columns")
         
         with col2:
-            st.write("**Data Quality Snapshot**")
+            st.markdown("**⚡ Data Quality Snapshot**")
             total_cells = df.shape[0] * df.shape[1]
             missing_cells = df.isnull().sum().sum()
-            st.write(f"- Missing Values: {missing_cells} ({missing_cells/total_cells*100:.1f}%)")
-            st.write(f"- Duplicate Rows: {df.duplicated().sum()}")
-            st.write(f"- Constant Columns: {len([col for col in df.columns if df[col].nunique() == 1])}")
+            duplicate_rows = df.duplicated().sum()
+            constant_cols = len([col for col in df.columns if df[col].nunique() == 1])
+            
+            st.write(f"- **Missing Values:** {missing_cells} ({missing_cells/total_cells*100:.1f}%)")
+            st.write(f"- **Duplicate Rows:** {duplicate_rows}")
+            st.write(f"- **Constant Columns:** {constant_cols}")
 
 def create_simple_histogram(data, bins=20):
     """Create histogram data without using pandas cut (which creates Interval objects)"""
@@ -457,12 +523,12 @@ def style_correlation_matrix(corr_matrix):
     
     # Convert to HTML with custom styling
     html = '<div style="overflow-x: auto;">'
-    html += '<table style="border-collapse: collapse; width: 100%;">'
+    html += '<table style="border-collapse: collapse; width: 100%; font-size: 0.9rem;">'
     
     # Header row
-    html += '<tr><th style="border: 1px solid #ddd; padding: 8px; background: #f2f2f2;"></th>'
+    html += '<tr><th style="border: 1px solid #ddd; padding: 8px; background: #f2f2f2; font-weight: bold;"></th>'
     for col in corr_matrix.columns:
-        html += f'<th style="border: 1px solid #ddd; padding: 8px; background: #f2f2f2;">{col}</th>'
+        html += f'<th style="border: 1px solid #ddd; padding: 8px; background: #f2f2f2; font-weight: bold;">{col}</th>'
     html += '</tr>'
     
     # Data rows
@@ -498,7 +564,7 @@ def display_advanced_results(df, results, ai_insights, quality_issues, report):
     # Create main navigation tabs
     tab1, tab2, tab3, tab4, tab5, tab6, tab7, tab8 = st.tabs([
         "📋 Summary", "🤖 AI Insights", "📈 Analytics", "🔍 Patterns", 
-        "📊 Visualizations", "📋 Data Quality", "📖 Story", "📄 Report"
+        "📊 Visualizations", "⚡ Data Quality", "📖 Story", "📄 Report"
     ])
     
     with tab1:
@@ -527,53 +593,63 @@ def display_advanced_results(df, results, ai_insights, quality_issues, report):
 
 def display_comprehensive_summary(summary_text):
     """Display the comprehensive summary in a beautiful format"""
-    st.header("📋 Comprehensive Summary")
+    st.markdown("### 📋 Comprehensive Summary")
+    st.markdown("Get a quick overview of your dataset with key insights and statistics.")
     
     # Display summary in a nice box
     st.markdown(f"""
-    <div style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; padding: 2rem; border-radius: 15px; margin: 1rem 0;">
-        <h3 style="color: white; margin-bottom: 1rem;">📊 Dataset Overview & Key Insights</h3>
-        <div style="background: rgba(255,255,255,0.1); padding: 1.5rem; border-radius: 10px;">
+    <div style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; padding: 2rem; border-radius: 12px; margin: 1rem 0;">
+        <h3 style="color: white; margin-bottom: 1.5rem; text-align: center;">📊 Dataset Overview & Key Insights</h3>
+        <div style="background: rgba(255,255,255,0.15); padding: 1.5rem; border-radius: 8px; font-size: 0.95rem; line-height: 1.6;">
             {summary_text.replace(chr(10), '<br>').replace('•', '•')}
         </div>
     </div>
     """, unsafe_allow_html=True)
     
     # Also show as raw text for copying
-    with st.expander("📝 Copy Summary Text"):
-        st.text(summary_text)
+    with st.expander("📝 Copy Summary Text", expanded=False):
+        st.code(summary_text, language='text')
 
 def display_ai_insights(ai_insights):
     """Display AI-generated insights"""
-    st.header("🤖 AI-Powered Insights")
+    st.markdown("### 🤖 AI-Powered Insights")
+    st.markdown("Intelligent analysis of your data patterns and relationships.")
     
     # Key Insights
-    st.subheader("💡 Key Insights")
-    for i, insight in enumerate(ai_insights['insights'][:5], 1):
-        st.markdown(f'<div class="insight-box"><strong>Insight {i}:</strong> {insight}</div>', unsafe_allow_html=True)
+    st.markdown("#### 💡 Key Insights")
+    if ai_insights['insights']:
+        for i, insight in enumerate(ai_insights['insights'][:5], 1):
+            st.markdown(f'<div class="insight-box"><strong>Insight {i}:</strong> {insight}</div>', unsafe_allow_html=True)
+    else:
+        st.info("No specific insights generated. The dataset appears to be well-structured.")
     
     # Recommendations
-    st.subheader("🎯 Actionable Recommendations")
-    for i, recommendation in enumerate(ai_insights['recommendations'][:5], 1):
-        st.markdown(f'<div class="warning-box"><strong>Recommendation {i}:</strong> {recommendation}</div>', unsafe_allow_html=True)
+    st.markdown("#### 🎯 Actionable Recommendations")
+    if ai_insights['recommendations']:
+        for i, recommendation in enumerate(ai_insights['recommendations'][:5], 1):
+            st.markdown(f'<div class="warning-box"><strong>Recommendation {i}:</strong> {recommendation}</div>', unsafe_allow_html=True)
+    else:
+        st.success("No major issues detected. Your data appears to be in good condition for analysis.")
 
 def display_advanced_analytics(df, results):
     """Display advanced analytical results"""
-    st.header("📈 Advanced Analytics")
+    st.markdown("### 📈 Advanced Analytics")
+    st.markdown("Detailed statistical analysis and correlation insights.")
     
     # Correlation Heatmap
     if 'correlation_analysis' in results:
-        st.subheader("🔄 Correlation Matrix")
+        st.markdown("#### 🔄 Correlation Matrix")
         corr_data = results['correlation_analysis']
         if 'matrix' in corr_data:
             corr_matrix = corr_data['matrix']
             
             # Display styled correlation matrix
+            st.markdown("**Color Guide:** 🔴 Strong (>0.7) 🟠 Medium (0.5-0.7) 🟢 Weak (<0.5)")
             st.markdown(style_correlation_matrix(corr_matrix), unsafe_allow_html=True)
         
         # High correlations
         if corr_data.get('high_correlations'):
-            st.subheader("🔗 Strong Correlations")
+            st.markdown("#### 🔗 Strong Correlations")
             for corr in corr_data['high_correlations'][:5]:
                 col1, col2 = corr['columns']
                 correlation_value = corr['correlation']
@@ -588,12 +664,14 @@ def display_advanced_analytics(df, results):
                     color = "🟢"
                 
                 st.write(f"{color} **{col1}** ↔ **{col2}**: {correlation_value:.3f} ({correlation_type})")
+        else:
+            st.info("No strong correlations detected in the dataset.")
     
     # Trend Analysis
-    if 'trend_analysis' in results:
-        st.subheader("📊 Trend Analysis")
+    if 'trend_analysis' in results and results['trend_analysis']:
+        st.markdown("#### 📊 Trend Analysis")
         trends = results['trend_analysis']
-        for col, trend_info in trends.items():
+        for col, trend_info in list(trends.items())[:3]:
             with st.expander(f"Trend Analysis: {col}"):
                 direction = trend_info.get('direction', 'N/A')
                 strength = trend_info.get('strength', 'N/A')
@@ -612,60 +690,64 @@ def display_advanced_analytics(df, results):
     
     # Anomaly Detection
     if 'anomaly_detection' in results:
-        st.subheader("🚨 Anomaly Detection")
+        st.markdown("#### 🚨 Anomaly Detection")
         anomalies = results['anomaly_detection']
         total_anomalies = sum(anom.get('count', 0) for anom in anomalies.values())
         
-        # Color code total anomalies
-        if total_anomalies > 100:
-            anomaly_color = "🔴"
-        elif total_anomalies > 50:
-            anomaly_color = "🟠"
-        else:
-            anomaly_color = "🟢"
-            
-        st.metric("Total Anomalies Detected", f"{anomaly_color} {total_anomalies}")
-        
-        for col, anomaly_info in list(anomalies.items())[:3]:
-            with st.expander(f"Anomalies in {col}"):
-                count = anomaly_info.get('count', 0)
-                percentage = anomaly_info.get('percentage', 0)
+        if total_anomalies > 0:
+            # Color code total anomalies
+            if total_anomalies > 100:
+                anomaly_color = "🔴"
+            elif total_anomalies > 50:
+                anomaly_color = "🟠"
+            else:
+                anomaly_color = "🟢"
                 
-                if percentage > 10:
-                    severity = "🔴 High"
-                elif percentage > 5:
-                    severity = "🟠 Medium"
-                else:
-                    severity = "🟢 Low"
+            st.metric("Total Anomalies Detected", f"{anomaly_color} {total_anomalies}")
+            
+            for col, anomaly_info in list(anomalies.items())[:3]:
+                with st.expander(f"Anomalies in {col}"):
+                    count = anomaly_info.get('count', 0)
+                    percentage = anomaly_info.get('percentage', 0)
                     
-                st.write(f"**Count:** {count}")
-                st.write(f"**Percentage:** {percentage:.1f}%")
-                st.write(f"**Severity:** {severity}")
+                    if percentage > 10:
+                        severity = "🔴 High"
+                    elif percentage > 5:
+                        severity = "🟠 Medium"
+                    else:
+                        severity = "🟢 Low"
+                        
+                    st.write(f"**Count:** {count}")
+                    st.write(f"**Percentage:** {percentage:.1f}%")
+                    st.write(f"**Severity:** {severity}")
+        else:
+            st.success("✅ No anomalies detected in the dataset.")
 
 def display_pattern_analysis(results):
     """Display pattern recognition results"""
-    st.header("🔍 Pattern Recognition")
+    st.markdown("### 🔍 Pattern Recognition")
+    st.markdown("Statistical patterns and distribution characteristics.")
     
     # Numeric Patterns
-    if 'numeric_analysis' in results:
-        st.subheader("🔢 Numeric Patterns")
+    if 'numeric_analysis' in results and results['numeric_analysis']:
+        st.markdown("#### 🔢 Numeric Patterns")
         numeric_results = results['numeric_analysis']
         for col, stats in list(numeric_results.items())[:5]:
             with st.expander(f"Patterns in {col}"):
                 col1, col2 = st.columns(2)
                 with col1:
-                    st.write("**Distribution**")
+                    st.markdown("**📊 Distribution**")
                     skewness = stats.get('skewness', 0)
                     if abs(skewness) > 1:
                         skew_icon = "⚠️"
                     else:
                         skew_icon = "✅"
-                    st.write(f"- Skewness: {skew_icon} {skewness:.2f}")
-                    st.write(f"- Kurtosis: {stats.get('kurtosis', 0):.2f}")
-                    st.write(f"- CV: {stats.get('cv', 0):.2f}%")
+                    st.write(f"- **Skewness:** {skew_icon} {skewness:.2f}")
+                    st.write(f"- **Kurtosis:** {stats.get('kurtosis', 0):.2f}")
+                    st.write(f"- **CV:** {stats.get('cv', 0):.2f}%")
                 
                 with col2:
-                    st.write("**Outliers**")
+                    st.markdown("**🎯 Outliers**")
                     outlier_count = len(stats.get('outliers', []))
                     outlier_percentage = outlier_count/stats.get('count', 1)*100
                     
@@ -676,12 +758,15 @@ def display_pattern_analysis(results):
                     else:
                         outlier_icon = "✅"
                         
-                    st.write(f"- Count: {outlier_icon} {outlier_count}")
-                    st.write(f"- % of data: {outlier_percentage:.1f}%")
+                    st.write(f"- **Count:** {outlier_icon} {outlier_count}")
+                    st.write(f"- **% of data:** {outlier_percentage:.1f}%")
+    else:
+        st.info("No numeric columns available for pattern analysis.")
 
 def display_advanced_visualizations(df, results):
     """Display interactive visualizations"""
-    st.header("📊 Advanced Visualizations")
+    st.markdown("### 📊 Advanced Visualizations")
+    st.markdown("Interactive charts and data visualizations.")
     
     # Simple visualizations using Streamlit
     numeric_cols = df.select_dtypes(include=np.number).columns.tolist()
@@ -692,11 +777,12 @@ def display_advanced_visualizations(df, results):
         col1, col2 = st.columns(2)
         
         with col1:
-            st.subheader("📈 Line Chart")
+            st.markdown("#### 📈 Trend Analysis")
             st.line_chart(df[selected_col])
+            st.caption(f"Trend analysis for {selected_col}")
         
         with col2:
-            st.subheader("📊 Distribution")
+            st.markdown("#### 📊 Distribution")
             # Use our custom histogram function instead of pd.cut
             data = df[selected_col].dropna()
             if len(data) > 0:
@@ -705,17 +791,21 @@ def display_advanced_visualizations(df, results):
                     # Display as bar chart with proper labels
                     chart_data = hist_df.set_index('bin_range')['count']
                     st.bar_chart(chart_data)
+                    st.caption(f"Distribution of {selected_col}")
                 else:
                     st.info("No data available for histogram")
             else:
                 st.info("No data available for histogram")
+    else:
+        st.info("No numeric columns available for visualization.")
 
 def display_data_quality(quality_issues):
     """Display data quality assessment"""
-    st.header("📋 Data Quality Assessment")
+    st.markdown("### ⚡ Data Quality Assessment")
+    st.markdown("Comprehensive evaluation of data integrity and cleanliness.")
     
     if quality_issues:
-        st.subheader("🚨 Quality Issues Found")
+        st.markdown("#### 🚨 Quality Issues Found")
         for issue_type, issues in quality_issues.items():
             with st.expander(f"{issue_type.replace('_', ' ').title()} ({len(issues)} issues)"):
                 for issue in issues[:10]:
@@ -728,32 +818,52 @@ def display_data_quality(quality_issues):
                         icon = "🟡"
                     st.write(f"{icon} {issue}")
     else:
-        st.success("✅ No major data quality issues detected!")
+        st.success("""
+        ## ✅ Excellent Data Quality!
+        
+        Your dataset appears to be in great condition with:
+        - No significant missing data issues
+        - No critical data type inconsistencies  
+        - No major outlier problems
+        - Good data consistency overall
+        """)
 
 def display_data_story(story):
     """Display data storytelling"""
-    st.header("📖 Data Story")
+    st.markdown("### 📖 Data Story")
+    st.markdown("Narrative insights explaining what your data reveals.")
+    
     st.markdown(f"""
-    <div style="background: #f8f9fa; padding: 2rem; border-radius: 10px; border-left: 5px solid #4ECDC4;">
-    {story}
+    <div style="background: #f8f9fa; padding: 2rem; border-radius: 12px; border-left: 5px solid #4ECDC4; line-height: 1.6;">
+        <div style="font-size: 1.1rem; color: #2c3e50;">
+            {story}
+        </div>
     </div>
     """, unsafe_allow_html=True)
+    
+    st.markdown("""
+    ---
+    *This analysis provides a foundation for data-driven decision making. 
+    Consider these insights when planning your next business strategy or research direction.*
+    """)
 
 def display_comprehensive_report(report):
     """Display comprehensive analysis report"""
-    st.header("📄 Comprehensive Analysis Report")
+    st.markdown("### 📄 Comprehensive Analysis Report")
+    st.markdown("Download a complete report of your data analysis.")
     
     st.download_button(
         "📥 Download Full Report (TXT)",
         data=report['detailed_report'],
         file_name=report['filename'],
-        mime="text/plain"
+        mime="text/plain",
+        use_container_width=True
     )
     
-    st.subheader("Executive Summary")
+    st.markdown("#### Executive Summary")
     st.write(report['executive_summary'])
     
-    with st.expander("View Detailed Report"):
+    with st.expander("📋 View Detailed Report", expanded=False):
         st.text(report['detailed_report'])
 
 if __name__ == "__main__":
