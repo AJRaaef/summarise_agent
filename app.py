@@ -23,7 +23,7 @@ st.set_page_config(
     page_icon="🧠"
 )
 
-# Custom CSS for advanced styling
+# Custom CSS for dark/light mode compatibility
 st.markdown("""
 <style>
     .main-header {
@@ -37,7 +37,7 @@ st.markdown("""
     }
     .sub-header {
         font-size: 1.5rem;
-        color: #2c3e50;
+        color: var(--text-color);
         margin-bottom: 1rem;
         font-weight: 600;
     }
@@ -51,20 +51,22 @@ st.markdown("""
         font-weight: 500;
     }
     .insight-box {
-        background: #f8f9fa;
+        background: var(--background-secondary);
         border-left: 4px solid #4ECDC4;
         padding: 1rem;
         margin: 0.5rem 0;
         border-radius: 8px;
         font-size: 0.95rem;
+        color: var(--text-color);
     }
     .warning-box {
-        background: #fff3cd;
+        background: var(--warning-bg);
         border-left: 4px solid #ffc107;
         padding: 1rem;
         margin: 0.5rem 0;
         border-radius: 8px;
         font-size: 0.95rem;
+        color: var(--text-color);
     }
     .summary-box {
         background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
@@ -74,30 +76,77 @@ st.markdown("""
         margin: 1rem 0;
     }
     .metric-card {
-        background: white;
+        background: var(--background-secondary);
         padding: 1rem;
         border-radius: 10px;
-        border: 1px solid #e0e0e0;
+        border: 1px solid var(--border-color);
         text-align: center;
         box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+    }
+    .metric-value {
+        font-size: 1.2rem;
+        font-weight: bold;
+        color: var(--text-color) !important;
+    }
+    .metric-label {
+        font-size: 0.9rem;
+        color: var(--text-color) !important;
+        margin-bottom: 0.25rem;
     }
     .tab-content {
         padding: 1rem 0;
     }
     .upload-section {
-        background: #f8f9fa;
+        background: var(--background-secondary);
         padding: 2rem;
         border-radius: 12px;
-        border: 2px dashed #dee2e6;
+        border: 2px dashed var(--border-color);
         text-align: center;
         margin: 1rem 0;
     }
     .file-info {
-        background: #e8f5e8;
+        background: var(--success-bg);
         padding: 1rem;
         border-radius: 8px;
         border-left: 4px solid #28a745;
         margin: 1rem 0;
+        color: var(--text-color);
+    }
+    
+    /* Light mode variables */
+    [data-theme="light"] {
+        --background-primary: #ffffff;
+        --background-secondary: #f8f9fa;
+        --text-color: #2c3e50;
+        --border-color: #dee2e6;
+        --warning-bg: #fff3cd;
+        --success-bg: #e8f5e8;
+    }
+    
+    /* Dark mode variables */
+    [data-theme="dark"] {
+        --background-primary: #0e1117;
+        --background-secondary: #262730;
+        --text-color: #fafafa;
+        --border-color: #555555;
+        --warning-bg: #332701;
+        --success-bg: #1a331a;
+    }
+    
+    /* Ensure text is readable in both modes */
+    .stApp {
+        background-color: var(--background-primary);
+        color: var(--text-color);
+    }
+    
+    /* Style dataframes and tables */
+    .dataframe {
+        color: var(--text-color) !important;
+    }
+    
+    /* Style expanders */
+    .streamlit-expanderHeader {
+        color: var(--text-color) !important;
     }
 </style>
 """, unsafe_allow_html=True)
@@ -459,8 +508,8 @@ def show_data_overview(df):
             st.markdown(f"""
             <div class="metric-card">
                 <div style="font-size: 1.5rem; margin-bottom: 0.5rem;">{icon}</div>
-                <div style="font-size: 0.9rem; color: #666; margin-bottom: 0.25rem;">{label}</div>
-                <div style="font-size: 1.2rem; font-weight: bold; color: #2c3e50;">{value}</div>
+                <div class="metric-label">{label}</div>
+                <div class="metric-value">{value}</div>
             </div>
             """, unsafe_allow_html=True)
     
@@ -523,17 +572,17 @@ def style_correlation_matrix(corr_matrix):
     
     # Convert to HTML with custom styling
     html = '<div style="overflow-x: auto;">'
-    html += '<table style="border-collapse: collapse; width: 100%; font-size: 0.9rem;">'
+    html += '<table style="border-collapse: collapse; width: 100%; font-size: 0.9rem; background: var(--background-primary); color: var(--text-color);">'
     
     # Header row
-    html += '<tr><th style="border: 1px solid #ddd; padding: 8px; background: #f2f2f2; font-weight: bold;"></th>'
+    html += '<tr><th style="border: 1px solid var(--border-color); padding: 8px; background: var(--background-secondary); font-weight: bold; color: var(--text-color);"></th>'
     for col in corr_matrix.columns:
-        html += f'<th style="border: 1px solid #ddd; padding: 8px; background: #f2f2f2; font-weight: bold;">{col}</th>'
+        html += f'<th style="border: 1px solid var(--border-color); padding: 8px; background: var(--background-secondary); font-weight: bold; color: var(--text-color);">{col}</th>'
     html += '</tr>'
     
     # Data rows
     for i, row in enumerate(corr_matrix.index):
-        html += f'<tr><td style="border: 1px solid #ddd; padding: 8px; background: #f2f2f2; font-weight: bold;">{row}</td>'
+        html += f'<tr><td style="border: 1px solid var(--border-color); padding: 8px; background: var(--background-secondary); font-weight: bold; color: var(--text-color);">{row}</td>'
         for j, col in enumerate(corr_matrix.columns):
             value = corr_matrix.iloc[i, j]
             abs_value = abs(value)
@@ -549,10 +598,10 @@ def style_correlation_matrix(corr_matrix):
                 bg_color = "#4ecdc4"  # Light teal
                 text_color = "white"
             else:
-                bg_color = "#f8f9fa"  # Light gray
-                text_color = "black"
+                bg_color = "var(--background-secondary)"
+                text_color = "var(--text-color)"
             
-            html += f'<td style="border: 1px solid #ddd; padding: 8px; background: {bg_color}; color: {text_color}; text-align: center;">{value:.2f}</td>'
+            html += f'<td style="border: 1px solid var(--border-color); padding: 8px; background: {bg_color}; color: {text_color}; text-align: center;">{value:.2f}</td>'
         html += '</tr>'
     
     html += '</table></div>'
@@ -834,8 +883,8 @@ def display_data_story(story):
     st.markdown("Narrative insights explaining what your data reveals.")
     
     st.markdown(f"""
-    <div style="background: #f8f9fa; padding: 2rem; border-radius: 12px; border-left: 5px solid #4ECDC4; line-height: 1.6;">
-        <div style="font-size: 1.1rem; color: #2c3e50;">
+    <div style="background: var(--background-secondary); padding: 2rem; border-radius: 12px; border-left: 5px solid #4ECDC4; line-height: 1.6;">
+        <div style="font-size: 1.1rem; color: var(--text-color);">
             {story}
         </div>
     </div>
