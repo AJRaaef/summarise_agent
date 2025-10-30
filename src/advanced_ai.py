@@ -21,8 +21,8 @@ class AdvancedAIAnalyzer:
         
         # Correlation insights
         if 'correlation_analysis' in analysis_results:
-            corr_matrix = analysis_results['correlation_analysis']
-            insights.extend(self._get_correlation_insights(corr_matrix))
+            corr_data = analysis_results['correlation_analysis']
+            insights.extend(self._get_correlation_insights(corr_data))
         
         # Trend insights
         if 'trend_analysis' in analysis_results:
@@ -68,13 +68,15 @@ class AdvancedAIAnalyzer:
         
         # Correlation-based actions
         if 'correlation_analysis' in analysis_results:
-            strong_corrs = self._find_strong_correlations(analysis_results['correlation_analysis'])
-            for col1, col2, corr in strong_corrs:
-                actions.append(f"Investigate relationship between {col1} and {col2} (correlation: {corr:.2f})")
+            corr_data = analysis_results['correlation_analysis']
+            strong_corrs = self._find_strong_correlations(corr_data)
+            for corr_info in strong_corrs:
+                col1, col2 = corr_info['columns']
+                actions.append(f"Investigate relationship between {col1} and {col2} (correlation: {corr_info['correlation']:.2f})")
         
         # Anomaly actions
         if 'anomaly_detection' in analysis_results:
-            total_anomalies = sum(len(anom) for anom in analysis_results['anomaly_detection'].values())
+            total_anomalies = sum(anom.get('count', 0) for anom in analysis_results['anomaly_detection'].values())
             if total_anomalies > 0:
                 actions.append(f"Review {total_anomalies} detected anomalies for data quality or business insights")
         
@@ -103,19 +105,16 @@ class AdvancedAIAnalyzer:
         
         return " ".join(story_parts)
     
-    def _get_correlation_insights(self, corr_matrix: pd.DataFrame) -> List[str]:
+    def _get_correlation_insights(self, corr_data: Dict) -> List[str]:
         """Extract insights from correlation matrix"""
         insights = []
-        n = len(corr_matrix.columns)
         
-        for i in range(n):
-            for j in range(i+1, n):
-                corr = abs(corr_matrix.iloc[i, j])
-                if corr > 0.7:  # Strong correlation
-                    col1, col2 = corr_matrix.columns[i], corr_matrix.columns[j]
-                    insights.append(
-                        f"Strong correlation ({corr:.2f}) between {col1} and {col2}"
-                    )
+        if 'high_correlations' in corr_data:
+            for corr_info in corr_data['high_correlations'][:3]:  # Top 3 correlations
+                col1, col2 = corr_info['columns']
+                insights.append(
+                    f"Strong {corr_info['type']} correlation ({corr_info['correlation']:.2f}) between {col1} and {col2}"
+                )
         
         return insights
     
@@ -123,8 +122,8 @@ class AdvancedAIAnalyzer:
         """Extract insights from trend analysis"""
         insights = []
         
-        for col, trend_info in trends.items():
-            if trend_info.get('strength', 0) > 0.5:  # Strong trend
+        for col, trend_info in list(trends.items())[:3]:  # Top 3 trends
+            if trend_info.get('strength') in ['strong', 'moderate']:
                 direction = trend_info.get('direction', 'unknown')
                 insights.append(f"Strong {direction} trend in {col}")
         
@@ -134,9 +133,9 @@ class AdvancedAIAnalyzer:
         """Extract insights from anomaly detection"""
         insights = []
         
-        for col, anomaly_list in anomalies.items():
-            if len(anomaly_list) > len(anomaly_list) * 0.05:  # More than 5% anomalies
-                insights.append(f"High anomaly rate ({len(anomaly_list)}) in {col} requires investigation")
+        for col, anomaly_info in list(anomalies.items())[:3]:  # Top 3 anomalies
+            if anomaly_info.get('percentage', 0) > 5:  # More than 5% anomalies
+                insights.append(f"High anomaly rate ({anomaly_info['count']}) in {col} requires investigation")
         
         return insights
     
@@ -152,7 +151,7 @@ class AdvancedAIAnalyzer:
         # Constant columns insight
         constant_cols = [col for col in df.columns if df[col].nunique() == 1]
         if constant_cols:
-            insights.append(f"Constant columns detected: {', '.join(constant_cols)}")
+            insights.append(f"Constant columns detected: {', '.join(constant_cols[:3])}")
         
         return insights
     
@@ -172,19 +171,12 @@ class AdvancedAIAnalyzer:
         
         return {'direction': direction, 'magnitude': magnitude}
     
-    def _find_strong_correlations(self, corr_matrix: pd.DataFrame, threshold: float = 0.7) -> List[tuple]:
+    def _find_strong_correlations(self, corr_data: Dict, threshold: float = 0.7) -> List[Dict]:
         """Find strong correlations above threshold"""
-        strong_corrs = []
-        n = len(corr_matrix.columns)
+        if 'high_correlations' not in corr_data:
+            return []
         
-        for i in range(n):
-            for j in range(i+1, n):
-                corr = abs(corr_matrix.iloc[i, j])
-                if corr > threshold:
-                    col1, col2 = corr_matrix.columns[i], corr_matrix.columns[j]
-                    strong_corrs.append((col1, col2, corr))
-        
-        return strong_corrs
+        return [corr for corr in corr_data['high_correlations'] if corr['correlation'] > threshold]
 
 # Singleton instance
 ai_analyzer = AdvancedAIAnalyzer()
